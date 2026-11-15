@@ -24,10 +24,12 @@ add_executable(crash_filter_tests
   test/memory_region_query_unittest.cc
 )
 target_compile_features(crash_filter_tests PRIVATE cxx_std_17)
+set_target_properties(crash_filter_tests PROPERTIES CXX_EXTENSIONS OFF)
 target_include_directories(crash_filter_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(crash_filter_tests PRIVATE GTest::gtest_main)
+
 if(MSVC)
-  target_compile_options(crash_filter_tests PRIVATE /W4 /WX)
+  target_compile_options(crash_filter_tests PRIVATE /W4 /WX /permissive- /Zc:__cplusplus)
 endif()
 
 include(GoogleTest)
