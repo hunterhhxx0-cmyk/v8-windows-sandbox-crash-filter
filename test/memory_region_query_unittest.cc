@@ -8,7 +8,6 @@ namespace {
 class VirtualMemoryFixture : public ::testing::Test {
  protected:
   void SetUp() override {
-    page_size_ = 0;
     SYSTEM_INFO info = {};
     ::GetSystemInfo(&info);
     page_size_ = info.dwPageSize;
@@ -47,6 +46,33 @@ TEST_F(VirtualMemoryFixture, ReflectsReadOnlyProtection) {
                                 &region));
   EXPECT_TRUE(region.readable);
   EXPECT_FALSE(region.writable);
+  EXPECT_FALSE(region.executable);
+}
+
+TEST_F(VirtualMemoryFixture, ReflectsExecutableReadableProtection) {
+  DWORD old_protection = 0;
+  ASSERT_TRUE(::VirtualProtect(memory_, page_size_, PAGE_EXECUTE_READ,
+                               &old_protection));
+  MemoryRegionInfo region = {};
+  ASSERT_TRUE(QueryMemoryRegion(reinterpret_cast<std::uintptr_t>(memory_),
+                                &region));
+  EXPECT_TRUE(region.readable);
+  EXPECT_FALSE(region.writable);
+  EXPECT_TRUE(region.executable);
+  EXPECT_TRUE(RegionAllowsAccess(region, MemoryAccessKind::kExecute));
+}
+
+TEST_F(VirtualMemoryFixture, RejectsNoAccessProtection) {
+  DWORD old_protection = 0;
+  ASSERT_TRUE(::VirtualProtect(memory_, page_size_, PAGE_NOACCESS,
+                               &old_protection));
+  MemoryRegionInfo region = {};
+  ASSERT_TRUE(QueryMemoryRegion(reinterpret_cast<std::uintptr_t>(memory_),
+                                &region));
+  EXPECT_FALSE(region.readable);
+  EXPECT_FALSE(region.writable);
+  EXPECT_FALSE(region.executable);
+  EXPECT_FALSE(RegionAllowsAccess(region, MemoryAccessKind::kRead));
 }
 
 TEST_F(VirtualMemoryFixture, RejectsGuardPageAsOrdinaryAccessibleMemory) {
@@ -63,6 +89,27 @@ TEST_F(VirtualMemoryFixture, RejectsGuardPageAsOrdinaryAccessibleMemory) {
 TEST_F(VirtualMemoryFixture, RejectsNullOutput) {
   EXPECT_FALSE(QueryMemoryRegion(reinterpret_cast<std::uintptr_t>(memory_),
                                  nullptr));
+}
+
+TEST(MemoryRegionQueryTest, ReportsReservedRegionAsNotAccessible) {
+  SYSTEM_INFO info = {};
+  ::GetSystemInfo(&info);
+  void* memory = ::VirtualAlloc(nullptr, info.dwPageSize, MEM_RESERVE,
+                                PAGE_NOACCESS);
+  ASSERT_NE(memory, nullptr);
+
+  MemoryRegionInfo region = {};
+  const bool queried = QueryMemoryRegion(
+      reinterpret_cast<std::uintptr_t>(memory), &region);
+  EXPECT_TRUE(queried);
+  if (queried) {
+    EXPECT_EQ(region.state, MEM_RESERVE);
+    EXPECT_FALSE(RegionAllowsAccess(region, MemoryAccessKind::kRead));
+    EXPECT_FALSE(RegionAllowsAccess(region, MemoryAccessKind::kWrite));
+    EXPECT_FALSE(RegionAllowsAccess(region, MemoryAccessKind::kExecute));
+  }
+
+  EXPECT_TRUE(::VirtualFree(memory, 0, MEM_RELEASE));
 }
 
 }  // namespace
