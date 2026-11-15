@@ -6,14 +6,33 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-x64-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
+    name: ${{ matrix.configuration }} (x64)
     runs-on: windows-2022
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
       - name: Configure
         run: cmake -S . -B build -A x64 -DCMAKE_CXX_STANDARD=17
+
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config ${{ matrix.configuration }} --parallel
+
       - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: ctest --test-dir build -C ${{ matrix.configuration }} --output-on-failure
