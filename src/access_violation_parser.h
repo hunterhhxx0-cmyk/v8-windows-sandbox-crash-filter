@@ -20,14 +20,15 @@ struct AccessViolationInfo {
   ULONG_PTR fault_address;
 };
 
-// Parses the documented EXCEPTION_ACCESS_VIOLATION parameters only.
-// This does not determine whether the access is safe and must never be used
-// by itself to swallow an exception or resume execution.
+// Parses only the documented EXCEPTION_ACCESS_VIOLATION parameters.
+// This does not decide whether the access is safe and must never be used by
+// itself to swallow an exception or resume execution.
 inline bool ParseAccessViolation(const EXCEPTION_RECORD& record,
                                  AccessViolationInfo* out) {
   if (out == nullptr ||
       record.ExceptionCode != EXCEPTION_ACCESS_VIOLATION ||
-      record.NumberParameters < 2) {
+      record.NumberParameters < 2 ||
+      record.NumberParameters > EXCEPTION_MAXIMUM_PARAMETERS) {
     return false;
   }
 
