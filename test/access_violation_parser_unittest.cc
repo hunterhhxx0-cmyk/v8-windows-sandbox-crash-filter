@@ -40,13 +40,24 @@ TEST(AccessViolationParserTest, RejectsTruncatedParameters) {
   EXPECT_FALSE(ParseAccessViolation(record, &info));
 }
 
-TEST(AccessViolationParserTest, RejectsUnknownAccessKind) {
+TEST(AccessViolationParserTest, RejectsExcessiveParameterCount) {
+  EXCEPTION_RECORD record = {};
+  record.ExceptionCode = EXCEPTION_ACCESS_VIOLATION;
+  record.NumberParameters = EXCEPTION_MAXIMUM_PARAMETERS + 1;
+  AccessViolationInfo info = {};
+  EXPECT_FALSE(ParseAccessViolation(record, &info));
+}
+
+TEST(AccessViolationParserTest, RejectsUnknownAccessKindWithoutChangingOutput) {
   EXCEPTION_RECORD record = {};
   record.ExceptionCode = EXCEPTION_ACCESS_VIOLATION;
   record.NumberParameters = 2;
   record.ExceptionInformation[0] = 2;
-  AccessViolationInfo info = {};
+
+  AccessViolationInfo info = {MemoryAccessKind::kExecute, 0xfeed};
   EXPECT_FALSE(ParseAccessViolation(record, &info));
+  EXPECT_EQ(info.access_kind, MemoryAccessKind::kExecute);
+  EXPECT_EQ(info.fault_address, static_cast<ULONG_PTR>(0xfeed));
 }
 
 TEST(AccessViolationParserTest, RejectsNullOutput) {
