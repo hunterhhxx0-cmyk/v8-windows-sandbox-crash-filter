@@ -7,6 +7,7 @@
 
 #include <windows.h>
 
+#include <cstddef>
 #include <cstdint>
 
 #include "access_violation_parser.h"
